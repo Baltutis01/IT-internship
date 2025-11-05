@@ -1,8 +1,6 @@
 import sys
 
 
-
-
 def solve(edges: list[tuple[str, str]]) -> list[str]:
     """
     Решение задачи об изоляции вируса
@@ -13,40 +11,49 @@ def solve(edges: list[tuple[str, str]]) -> list[str]:
     Returns:
         список отключаемых коридоров в формате "Шлюз-узел"
     """
-    result = []
-    start = ['a','a']
-    y, i = 0, 0
-    n = len(edges)
-    while i < n:
-        if y == 0 or y == len(start):
-            y = len(start)-1
-        if edges[i][0]  == start[y][-1]:
-            if edges[i][1].isupper():
-                result.append(start[y]+edges[i][1])
-            else:
-                start[y] += edges[i][1]
-            y += 1
-            i += 1
+
+
+    internal = []
+    to_gates = []
+    for u, v in edges:
+        if u.isupper():
+            to_gates.append((v, u))
             continue
-        if edges[i][1] == start[y][-1]:
-            if edges[i][0].isupper():
-                result.append(start[y]+edges[i][0])
-            else:
-                start[y] += edges[i][0]
-            y += 1
-            i += 1
+        if v.isupper():
+            to_gates.append((u, v))
             continue
-        if start[y][:-1] != start[0][:-1]:
-            start.append(start[y][:-1])
         else:
-            start.append(start[0][-1])
-        y -= 1
+            internal.append((min(u, v), max(u, v)))
+    internal.sort(key=lambda x: (x[0], x[1]))
+    to_gates.sort(key=lambda x: (x[0], x[1]))
+    edges = internal + to_gates
+    result = []
+    virus = 'a'
+    count_gates = 0
 
-    reverse = [s[::-1] for s in result if s[::-1] and s[::-1][0].isupper()]
-    sort = sorted(reverse, key=lambda x: (len(x), x))
-    result = [f"{s[0]}-{s[1]}" for s in sort if len(s) >= 2]
-
-
+    while count_gates < len(to_gates):
+        paths = []
+        stack = [(virus, virus)]
+        while stack:
+            node, path = stack.pop()
+            for u, v in edges:
+                if u == node:
+                    if v.isupper():
+                        paths.append(path + v)
+                    elif v not in path:
+                        stack.append((v, path + v))
+                elif v == node:
+                    if u.isupper():
+                        paths.append(path + u)
+                    elif u not in path:
+                        stack.append((u, path + u))
+        min_len = min(len(p) for p in paths)
+        best_path = min([p for p in paths if len(p) == min_len])
+        result.append(f"{best_path[-1]}-{best_path[-2]}")
+        edges = [(u, v) for u, v in edges if not (u == best_path[-2] and v == best_path[-1])]
+        if len(best_path) > 1:
+            virus = best_path[1]
+        count_gates += 1
     return result
 
 
