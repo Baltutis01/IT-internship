@@ -3,26 +3,25 @@ from collections import deque, defaultdict
 
 def bfs_distances(graph, start):
     dist = {start: 0}
-    queue = deque([start])
-    while queue:
-        u = queue.popleft()
+    q = deque([start])
+    while q:
+        u = q.popleft()
         for v in graph[u]:
             if v not in dist:
                 dist[v] = dist[u] + 1
-                queue.append(v)
+                q.append(v)
     return dist
 
-def solve(edges: list[tuple[str, str]]) -> list[str]:
-    """
-    Решение задачи об изоляции вируса
+def get_all_gate_edges(graph, gates):
+    edges = []
+    for gate in gates:
+        for node in graph[gate]:
+            if node.islower():  
+                edges.append(f"{gate}-{node}")
+    edges.sort() 
+    return edges
 
-    Args:
-        edges: список коридоров в формате (узел1, узел2)
-
-    Returns:
-        список отключаемых коридоров в формате "Шлюз-узел"
-    """
-
+def solve(edges):
     graph = defaultdict(set)
     gates = set()
     for u, v in edges:
@@ -37,48 +36,42 @@ def solve(edges: list[tuple[str, str]]) -> list[str]:
     result = []
 
     while True:
-        dist_v = bfs_distances(graph, virus)
-        gate_dists = {g: dist_v[g] for g in gates if g in dist_v}
+        all_gate_edges = get_all_gate_edges(graph, gates)
+        if not all_gate_edges:
+            break
+
+        adjacent_gates = [n for n in graph[virus] if n.isupper()]
+        if adjacent_gates:
+            candidates = [f"{g}-{virus}" for g in adjacent_gates]
+            to_remove = min(candidates)
+        else:
+            to_remove = all_gate_edges[0]
+
+        result.append(to_remove)
+        gate, node = to_remove.split('-')
+        graph[gate].discard(node)
+        graph[node].discard(gate)
+
+        dist = bfs_distances(graph, virus)
+        gate_dists = {g: dist[g] for g in gates if g in dist}
         if not gate_dists:
             break
 
         min_dist = min(gate_dists.values())
-        closest_gates = [g for g, d in gate_dists.items() if d == min_dist]
-        target_gate = min(closest_gates)
-
-
-        candidates = []
-        for node in graph[target_gate]:
-            if node in dist_v and dist_v[node] == min_dist - 1:
-                candidates.append(node)
-        if not candidates:
-            break
-
-        to_cut = min(candidates)
-        result.append(f"{target_gate}-{to_cut}")
-        graph[target_gate].discard(to_cut)
-        graph[to_cut].discard(target_gate)
-        
-        dist_v = bfs_distances(graph, virus)
-        gate_dists = {g: dist_v[g] for g in gates if g in dist_v}
-        if not gate_dists:
-            break
-        current_min = min(gate_dists.values())
-
-        next_moves = []
+        next_candidates = []
         for nb in graph[virus]:
             if nb.isupper():
                 continue
-            dist_nb = bfs_distances(graph, nb)
-            gate_dists_nb = {g: dist_nb[g] for g in gates if g in dist_nb}
-            if not gate_dists_nb:
-                continue
-            if min(gate_dists_nb.values()) == current_min - 1:
-                next_moves.append(nb)
+            if nb in dist and dist[nb] == 1:
+                dist_nb = bfs_distances(graph, nb)
+                gate_dists_nb = {g: dist_nb[g] for g in gates if g in dist_nb}
+                if gate_dists_nb:
+                    if min(gate_dists_nb.values()) == min_dist - 1:
+                        next_candidates.append(nb)
 
-        if not next_moves:
+        if not next_candidates:
             break
-        virus = min(next_moves)
+        virus = min(next_candidates)
 
     return result
 
