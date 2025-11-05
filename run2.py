@@ -1,5 +1,16 @@
 import sys
+from collections import deque, defaultdict
 
+def bfs_distances(graph, start):
+    dist = {start: 0}
+    queue = deque([start])
+    while queue:
+        u = queue.popleft()
+        for v in graph[u]:
+            if v not in dist:
+                dist[v] = dist[u] + 1
+                queue.append(v)
+    return dist
 
 def solve(edges: list[tuple[str, str]]) -> list[str]:
     """
@@ -12,50 +23,64 @@ def solve(edges: list[tuple[str, str]]) -> list[str]:
         список отключаемых коридоров в формате "Шлюз-узел"
     """
 
-
-    internal = []
-    to_gates = []
+    graph = defaultdict(set)
+    gates = set()
     for u, v in edges:
+        graph[u].add(v)
+        graph[v].add(u)
         if u.isupper():
-            to_gates.append((v, u))
-            continue
+            gates.add(u)
         if v.isupper():
-            to_gates.append((u, v))
-            continue
-        else:
-            internal.append((min(u, v), max(u, v)))
-    internal.sort(key=lambda x: (x[0], x[1]))
-    to_gates.sort(key=lambda x: (x[0], x[1]))
-    edges = internal + to_gates
-    result = []
+            gates.add(v)
+
     virus = 'a'
-    count_gates = 0
+    result = []
 
-    while count_gates < len(to_gates):
-        paths = []
-        stack = [(virus, virus)]
-        while stack:
-            node, path = stack.pop()
-            for u, v in edges:
-                if u == node:
-                    if v.isupper():
-                        paths.append(path + v)
-                    elif v not in path:
-                        stack.append((v, path + v))
-                elif v == node:
-                    if u.isupper():
-                        paths.append(path + u)
-                    elif u not in path:
-                        stack.append((u, path + u))
-        min_len = min(len(p) for p in paths)
-        best_path = min([p for p in paths if len(p) == min_len])
-        result.append(f"{best_path[-1]}-{best_path[-2]}")
-        edges = [(u, v) for u, v in edges if not (u == best_path[-2] and v == best_path[-1])]
-        if len(best_path) > 1:
-            virus = best_path[1]
-        count_gates += 1
+    while True:
+        dist_v = bfs_distances(graph, virus)
+        gate_dists = {g: dist_v[g] for g in gates if g in dist_v}
+        if not gate_dists:
+            break
+
+        min_dist = min(gate_dists.values())
+        closest_gates = [g for g, d in gate_dists.items() if d == min_dist]
+        target_gate = min(closest_gates)
+
+
+        candidates = []
+        for node in graph[target_gate]:
+            if node in dist_v and dist_v[node] == min_dist - 1:
+                candidates.append(node)
+        if not candidates:
+            break
+
+        to_cut = min(candidates)
+        result.append(f"{target_gate}-{to_cut}")
+        graph[target_gate].discard(to_cut)
+        graph[to_cut].discard(target_gate)
+        
+        dist_v = bfs_distances(graph, virus)
+        gate_dists = {g: dist_v[g] for g in gates if g in dist_v}
+        if not gate_dists:
+            break
+        current_min = min(gate_dists.values())
+
+        next_moves = []
+        for nb in graph[virus]:
+            if nb.isupper():
+                continue
+            dist_nb = bfs_distances(graph, nb)
+            gate_dists_nb = {g: dist_nb[g] for g in gates if g in dist_nb}
+            if not gate_dists_nb:
+                continue
+            if min(gate_dists_nb.values()) == current_min - 1:
+                next_moves.append(nb)
+
+        if not next_moves:
+            break
+        virus = min(next_moves)
+
     return result
-
 
 def main():
     edges = []
